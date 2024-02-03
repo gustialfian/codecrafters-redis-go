@@ -39,7 +39,7 @@ func handleCon(conn net.Conn) {
 	}
 
 	// log.Println("Received data:", buf[:n], []byte("PING\n"))
-	if string(buf[:n]) == "PING\n" {
+	if string(buf[:n]) == "*1\r\n$4\r\nping\r\n" {
 		conn.Write([]byte("+PONG\r\n"))
 		return
 	}
