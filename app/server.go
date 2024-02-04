@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -13,11 +14,26 @@ import (
 func main() {
 	fmt.Println("Logs from your program will appear here!")
 
-	StartServer()
+	dir := flag.String("dir", "", "The directory where RDB files are stored")
+	dbfilename := flag.String("dbfilename", "", "The name of the RDB file")
+	flag.Parse()
+
+	startServer(serverOpt{dir: *dir, dbfilename: *dbfilename})
 }
 
-func StartServer() {
-	fmt.Println("StartServer...")
+type serverOpt struct {
+	dir        string
+	dbfilename string
+}
+
+var cfg = make(map[string]string)
+
+func startServer(opt serverOpt) {
+	log.Println("StartServer...")
+
+	cfg["dir"] = opt.dir
+	cfg["dbfilename"] = opt.dbfilename
+
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
 		fmt.Println("net.Listen:", err.Error())
@@ -75,41 +91,42 @@ func parse(conn net.Conn) (message, error) {
 }
 
 func runMessage(conn net.Conn, m message) error {
-	if m.cmd == "ping" {
-		val := "PONG"
-
-		res := fmt.Sprintf("+%v\r\n", val)
-		conn.Write([]byte(res))
+	switch m.cmd {
+	case "ping":
+		conn.Write([]byte("+PONG\r\n"))
 		return nil
-	}
-	if m.cmd == "echo" {
+
+	case "echo":
 		res := fmt.Sprintf("+%v\r\n", m.args[1])
 		conn.Write([]byte(res))
 		return nil
-	}
-	if m.cmd == "set" {
-		onSet(m.args)
-		val := "OK"
 
-		res := fmt.Sprintf("+%v\r\n", val)
+	case "set":
+		res := onSet(m.args)
 		conn.Write([]byte(res))
 		return nil
-	}
-	if m.cmd == "get" {
+
+	case "get":
 		res := onGet(m.args)
-
 		conn.Write([]byte(res))
 		return nil
+
+	case "config":
+		res := onConfig(m.args)
+		conn.Write([]byte(res))
+		return nil
+
+	default:
+		return fmt.Errorf("unknown command")
+
 	}
-	return fmt.Errorf("unknown command")
 }
 
 var data = make(map[string]string)
 
-func onSet(args []string) {
+func onSet(args []string) string {
 	if len(args) == 5 {
 		data[args[1]] = args[3]
-		return
 	}
 	if len(args) == 9 {
 		data[args[1]] = args[3]
@@ -124,6 +141,7 @@ func onSet(args []string) {
 			delete(data, args[1])
 		}()
 	}
+	return "+OK\r\n"
 }
 
 func onGet(args []string) string {
@@ -134,4 +152,15 @@ func onGet(args []string) string {
 	}
 
 	return fmt.Sprintf("+%v\r\n", val)
+}
+
+func onConfig(args []string) string {
+	val := cfg[args[3]]
+
+	if len(val) == 0 {
+		return "$-1\r\n"
+	}
+
+	return fmt.Sprintf("+%v\r\n", val)
+
 }
