@@ -32,7 +32,6 @@ func HandleCon(conn net.Conn) {
 	for {
 		m, err := parse(conn)
 		if err != nil {
-			fmt.Println(err.Error())
 			break
 		}
 
@@ -57,8 +56,6 @@ func parse(conn net.Conn) (message, error) {
 	}
 	s := string(b[:n])
 
-	fmt.Println("Received:", s)
-
 	lines := strings.Split(s, "\r\n")
 	cmd := lines[2]
 	args := lines[3:]
@@ -70,6 +67,7 @@ func parse(conn net.Conn) (message, error) {
 }
 
 func runMessage(conn net.Conn, m message) error {
+	fmt.Printf("%+v\n", m)
 	if m.cmd == "ping" {
 		conn.Write([]byte("+PONG\r\n"))
 		return nil
@@ -79,5 +77,30 @@ func runMessage(conn net.Conn, m message) error {
 		conn.Write([]byte(res))
 		return nil
 	}
+	if m.cmd == "set" {
+		onSet(m.args)
+
+		res := fmt.Sprintf("+%v\r\n", "OK")
+		conn.Write([]byte(res))
+		return nil
+	}
+	if m.cmd == "get" {
+		val := onGet(m.args)
+
+		res := fmt.Sprintf("+%v\r\n", val)
+		conn.Write([]byte(res))
+		return nil
+	}
 	return fmt.Errorf("unknown command")
+}
+
+var data = make(map[string]string)
+
+func onSet(args []string) {
+	data[args[1]] = args[3]
+}
+
+func onGet(args []string) string {
+	fmt.Println("onGet:", args)
+	return data[args[1]]
 }
