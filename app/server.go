@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
@@ -21,27 +23,28 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		fmt.Println("accepted new conn")
 
 		go HandleCon(conn)
 	}
 }
 
 func HandleCon(conn net.Conn) {
-	for {
-		buf := make([]byte, 1024)
-		n, err := conn.Read(buf)
-		if err != nil {
-			fmt.Println("Error reading connection: ", err.Error())
-			os.Exit(1)
-		}
-		fmt.Println("accepted new msg:", string(buf[:n]))
+	r := bufio.NewReader(conn)
+	w := bufio.NewWriter(conn)
 
-		if string(buf[:n]) == "*1\r\n$4\r\nping\r\n" {
-			conn.Write([]byte("+PONG\r\n"))
+	for {
+		l, _, err := r.ReadLine()
+		if len(l) < 3 {
 			continue
 		}
+		if err == io.EOF {
+			break
+		}
 
-		conn.Write([]byte("unknown msg\r\n"))
+		fmt.Println("Received: ", string(l))
+		_, err = w.Write([]byte("+PONG\r\n"))
+		if err != nil {
+			w.Flush()
+		}
 	}
 }
