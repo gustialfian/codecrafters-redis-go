@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"net"
 	"os"
 )
@@ -13,14 +11,14 @@ func main() {
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
+		fmt.Println("net.Listen:", err.Error())
 		os.Exit(1)
 	}
 
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Println("Error accepting connection:", err.Error())
+			fmt.Println("l.Accept:", err.Error())
 			os.Exit(1)
 		}
 
@@ -29,25 +27,18 @@ func main() {
 }
 
 func HandleCon(conn net.Conn) {
-	r := bufio.NewReader(conn)
-	w := bufio.NewWriter(conn)
-
+	b := make([]byte, 1024)
 	for {
-		l, _, err := r.ReadLine()
-		if len(l) < 3 {
-			continue
-		}
-		if err == io.EOF {
-			break
+		n, err := conn.Read(b)
+		if err != nil {
+			fmt.Println("conn.Read:", err.Error())
+			os.Exit(1)
 		}
 
-		msg := string(l)
+		msg := string(b[:n])
 		fmt.Println("Received:", msg)
-		if msg == "PING" {
-			_, err = conn.Write([]byte("+PONG\r\n"))
-			if err != nil {
-				w.Flush()
-			}
+		if msg == "*1\r\n$4\r\nping\r\n" {
+			conn.Write([]byte("+PONG\r\n"))
 		}
 	}
 }
