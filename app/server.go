@@ -96,9 +96,8 @@ func runMessage(conn net.Conn, m message) error {
 		return nil
 	}
 	if m.cmd == "get" {
-		val := onGet(m.args)
+		res := onGet(m.args)
 
-		res := fmt.Sprintf("+%v\r\n", val)
 		conn.Write([]byte(res))
 		return nil
 	}
@@ -128,5 +127,11 @@ func onSet(args []string) {
 }
 
 func onGet(args []string) string {
-	return data[args[1]]
+	val := data[args[1]]
+
+	if len(val) == 0 {
+		return "_\r\n"
+	}
+
+	return fmt.Sprintf("+%v\r\n", val)
 }
