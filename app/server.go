@@ -14,6 +14,7 @@ func main() {
 		fmt.Println("net.Listen:", err.Error())
 		os.Exit(1)
 	}
+	defer l.Close()
 
 	for {
 		conn, err := l.Accept()
@@ -32,7 +33,7 @@ func HandleCon(conn net.Conn) {
 		n, err := conn.Read(b)
 		if err != nil {
 			fmt.Println("conn.Read:", err.Error())
-			os.Exit(1)
+			break
 		}
 
 		msg := string(b[:n])
