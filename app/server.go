@@ -21,6 +21,7 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
+		fmt.Println("accepted new conn")
 
 		go HandleCon(conn)
 	}
@@ -34,6 +35,7 @@ func HandleCon(conn net.Conn) {
 			fmt.Println("Error reading connection: ", err.Error())
 			os.Exit(1)
 		}
+		fmt.Println("accepted new msg:", string(buf[:n]))
 
 		if string(buf[:n]) == "*1\r\n$4\r\nping\r\n" {
 			conn.Write([]byte("+PONG\r\n"))
