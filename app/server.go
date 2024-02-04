@@ -32,7 +32,7 @@ func HandleCon(conn net.Conn) {
 		n, err := conn.Read(buf)
 		if err != nil {
 			fmt.Println("Error reading connection: ", err.Error())
-			return
+			os.Exit(1)
 		}
 
 		if string(buf[:n]) == "*1\r\n$4\r\nping\r\n" {
