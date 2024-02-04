@@ -46,7 +46,7 @@ func HandleCon(conn net.Conn) {
 
 type message struct {
 	cmd  string
-	args string
+	args []string
 }
 
 func parse(conn net.Conn) (message, error) {
@@ -61,7 +61,7 @@ func parse(conn net.Conn) (message, error) {
 
 	lines := strings.Split(s, "\r\n")
 	cmd := lines[2]
-	args := lines[4]
+	args := lines[3:]
 
 	return message{
 		cmd:  cmd,
@@ -75,7 +75,7 @@ func runMessage(conn net.Conn, m message) error {
 		return nil
 	}
 	if m.cmd == "echo" {
-		res := fmt.Sprintf("+%v\r\n", m.args)
+		res := fmt.Sprintf("+%v\r\n", m.args[1])
 		conn.Write([]byte(res))
 		return nil
 	}
