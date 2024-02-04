@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -105,7 +108,23 @@ func runMessage(conn net.Conn, m message) error {
 var data = make(map[string]string)
 
 func onSet(args []string) {
-	data[args[1]] = args[3]
+	if len(args) == 5 {
+		data[args[1]] = args[3]
+		return
+	}
+	if len(args) == 9 {
+		data[args[1]] = args[3]
+
+		ttl, err := strconv.ParseInt(args[7], 10, 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		go func() {
+			<-time.After(time.Duration(ttl) * time.Millisecond)
+			delete(data, args[1])
+		}()
+	}
 }
 
 func onGet(args []string) string {
