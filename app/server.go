@@ -10,6 +10,11 @@ import (
 func main() {
 	fmt.Println("Logs from your program will appear here!")
 
+	StartServer()
+}
+
+func StartServer() {
+	fmt.Println("StartServer...")
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
 		fmt.Println("net.Listen:", err.Error())
@@ -67,9 +72,11 @@ func parse(conn net.Conn) (message, error) {
 }
 
 func runMessage(conn net.Conn, m message) error {
-	fmt.Printf("%+v\n", m)
 	if m.cmd == "ping" {
-		conn.Write([]byte("+PONG\r\n"))
+		val := "PONG"
+
+		res := fmt.Sprintf("+%v\r\n", val)
+		conn.Write([]byte(res))
 		return nil
 	}
 	if m.cmd == "echo" {
@@ -79,8 +86,9 @@ func runMessage(conn net.Conn, m message) error {
 	}
 	if m.cmd == "set" {
 		onSet(m.args)
+		val := "OK"
 
-		res := fmt.Sprintf("+%v\r\n", "OK")
+		res := fmt.Sprintf("+%v\r\n", val)
 		conn.Write([]byte(res))
 		return nil
 	}
@@ -101,6 +109,5 @@ func onSet(args []string) {
 }
 
 func onGet(args []string) string {
-	fmt.Println("onGet:", args)
 	return data[args[1]]
 }
