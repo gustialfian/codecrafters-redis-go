@@ -155,7 +155,7 @@ func onGet(args []string) string {
 }
 
 func onConfig(args []string) string {
-	key := args[1]
+	key := args[3]
 	val := cfg[args[3]]
 
 	if len(val) == 0 {

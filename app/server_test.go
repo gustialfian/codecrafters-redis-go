@@ -64,6 +64,11 @@ func TestStartServer(t *testing.T) {
 			input:  makeCmd([]string{"get", "expiry"}),
 			expect: "$-1\r\n",
 		},
+		{
+			name:   "get_config",
+			input:  makeCmd([]string{"config", "get", "dir"}),
+			expect: "*2\r\n$3\r\ndir\r\n$16\r\n/tmp/redis-files\r\n",
+		},
 	}
 
 	for _, tt := range tests {
@@ -80,7 +85,7 @@ func TestStartServer(t *testing.T) {
 			}
 
 			if string(res[:n]) != tt.expect {
-				t.Fatalf("expected %v got %v", string(res[:n]), tt.expect)
+				t.Fatalf("expected %v got %v", tt.expect, string(res[:n]))
 			}
 		})
 		<-time.After(tt.wait)
