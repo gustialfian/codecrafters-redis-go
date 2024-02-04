@@ -41,8 +41,8 @@ func HandleCon(conn net.Conn) {
 			break
 		}
 
-		fmt.Println("Received: ", string(l))
-		_, err = w.Write([]byte("+PONG\r\n"))
+		fmt.Println("Received:", string(l))
+		_, err = conn.Write([]byte("+PONG\r\n"))
 		if err != nil {
 			w.Flush()
 		}
