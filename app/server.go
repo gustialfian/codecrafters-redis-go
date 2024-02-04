@@ -31,12 +31,13 @@ func HandleCon(conn net.Conn) {
 		buf := make([]byte, 1024)
 		n, err := conn.Read(buf)
 		if err != nil {
+			fmt.Println("Error reading connection: ", err.Error())
 			return
 		}
 
 		if string(buf[:n]) == "*1\r\n$4\r\nping\r\n" {
 			conn.Write([]byte("+PONG\r\n"))
-			return
+			continue
 		}
 
 		conn.Write([]byte("unknown msg\r\n"))
