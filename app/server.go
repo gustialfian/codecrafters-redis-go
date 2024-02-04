@@ -130,7 +130,7 @@ func onGet(args []string) string {
 	val := data[args[1]]
 
 	if len(val) == 0 {
-		return "_\r\n"
+		return "$-1\r\n"
 	}
 
 	return fmt.Sprintf("+%v\r\n", val)
