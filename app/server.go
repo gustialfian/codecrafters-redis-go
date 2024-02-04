@@ -41,10 +41,13 @@ func HandleCon(conn net.Conn) {
 			break
 		}
 
-		fmt.Println("Received:", string(l))
-		_, err = conn.Write([]byte("+PONG\r\n"))
-		if err != nil {
-			w.Flush()
+		msg := string(l)
+		fmt.Println("Received:", msg)
+		if msg == "PING" {
+			_, err = conn.Write([]byte("+PONG\r\n"))
+			if err != nil {
+				w.Flush()
+			}
 		}
 	}
 }
