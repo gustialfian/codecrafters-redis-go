@@ -27,8 +27,8 @@ func main() {
 }
 
 func HandleCon(conn net.Conn) {
-	b := make([]byte, 1024)
 	for {
+		b := make([]byte, 1024)
 		n, err := conn.Read(b)
 		if err != nil {
 			fmt.Println("conn.Read:", err.Error())
