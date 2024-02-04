@@ -61,7 +61,7 @@ func parse(conn net.Conn) (message, error) {
 
 	lines := strings.Split(s, "\r\n")
 	cmd := lines[2]
-	args := lines[3]
+	args := lines[4]
 
 	return message{
 		cmd:  cmd,
