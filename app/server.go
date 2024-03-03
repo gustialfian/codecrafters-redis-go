@@ -36,7 +36,7 @@ func startServer(opt serverOpt) {
 
 	cfg["dir"] = opt.dir
 	cfg["dbfilename"] = opt.dbfilename
-	path := fmt.Sprintf("%v/%v", opt.dir, opt.dbfilename)
+	path := fmt.Sprintf("./%v/%v", opt.dir, opt.dbfilename)
 	rdb = ParseV2(path)
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
@@ -188,6 +188,7 @@ func runMessage(conn net.Conn, m message) error {
 	case "config":
 		resp = onConfig(m.args)
 	case "keys":
+		// redis-cli keys "*"
 		resp = onKeys(m.args)
 	default:
 		return fmt.Errorf("unknown command")
