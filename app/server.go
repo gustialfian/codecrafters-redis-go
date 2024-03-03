@@ -36,8 +36,10 @@ func startServer(opt serverOpt) {
 
 	cfg["dir"] = opt.dir
 	cfg["dbfilename"] = opt.dbfilename
-	path := fmt.Sprintf("./%v/%v", opt.dir, opt.dbfilename)
-	rdb = ParseV2(path)
+	if cfg["dir"] != "" || cfg["dbfilename"] != "" {
+		path := fmt.Sprintf("./%v/%v", opt.dir, opt.dbfilename)
+		rdb = ParseV2(path)
+	}
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
