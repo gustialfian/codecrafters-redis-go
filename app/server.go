@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +38,7 @@ func startServer(opt serverOpt) {
 	cfg["dir"] = opt.dir
 	cfg["dbfilename"] = opt.dbfilename
 	if cfg["dir"] != "" || cfg["dbfilename"] != "" {
-		path := fmt.Sprintf("./%v/%v", opt.dir, opt.dbfilename)
+		path := filepath.Join(opt.dir, opt.dbfilename)
 		rdb = ParseV2(path)
 	}
 
