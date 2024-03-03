@@ -44,6 +44,20 @@ func startServer(opt serverOpt) {
 		if err == nil {
 			rdb = ParseV2(path)
 			for _, f := range rdb.Databases[0].Fields {
+				if f.ExpiredTime != 0 {
+					expTime := time.UnixMilli(int64(f.ExpiredTime))
+					if time.Now().After(expTime) {
+						continue
+					}
+
+					duration := expTime.Sub(time.Now())
+					go func() {
+						time.AfterFunc(duration, func() {
+							delete(data, f.Key)
+						})
+					}()
+				}
+
 				data[f.Key] = f.Value.(string)
 			}
 		}
