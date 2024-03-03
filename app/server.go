@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -73,21 +75,100 @@ type message struct {
 }
 
 func parse(conn net.Conn) (message, error) {
-	b := make([]byte, 1024)
-	n, err := conn.Read(b)
+	r := bufio.NewReader(conn)
+	b, err := r.ReadBytes('\n')
 	if err != nil {
 		return message{}, err
 	}
-	s := string(b[:n])
 
-	lines := strings.Split(s, "\r\n")
-	cmd := lines[2]
-	args := lines[3:]
+	if len(b) < 1 {
+		return message{}, errors.New("empty line")
+	}
 
-	return message{
-		cmd:  cmd,
-		args: args,
-	}, nil
+	if b[0] != '*' {
+		return message{}, errors.New("not impl first command not array")
+	}
+
+	readUntilCRLF := func(r *bufio.Reader) ([]byte, error) {
+		b, err := r.ReadBytes('\n')
+		if err != nil {
+			return b, err
+		}
+
+		if len(b) < 1 {
+			return b, errors.New("empty line")
+		}
+
+		if !strings.HasSuffix(string(b), "\r\n") {
+			return b, errors.New("not ended with CRLF")
+		}
+
+		length := len(b)
+		return b[:length-2], nil
+	}
+
+	lengthBytes := b[1:]
+	lengthStr := string(lengthBytes[:len(lengthBytes)-2]) // remove the CRLF
+	length, err := strconv.Atoi(lengthStr)
+	if err != nil {
+		return message{}, fmt.Errorf("invalid ararys length: %w", err)
+	}
+
+	if length < 1 {
+		return message{}, errors.New("empty command")
+	}
+
+	msg := message{
+		args: make([]string, length-1),
+	}
+
+	for i := 0; i < length; i++ {
+		var data string
+		b, err := r.ReadByte()
+		if err != nil {
+			return message{}, err
+		}
+
+		switch b {
+		case '$': // bulk string
+			lengthByte, err := readUntilCRLF(r)
+			if err != nil {
+				return message{}, fmt.Errorf("failed reading bulk string length: %w", err)
+			}
+			length, err := strconv.Atoi(string(lengthByte))
+			if err != nil {
+				return message{}, fmt.Errorf("invalid bulk string length: %w", err)
+			}
+
+			data, err = readBulkString(r, length)
+			if err != nil {
+				return message{}, fmt.Errorf("failed to read bulkstring: %w", err)
+			}
+		}
+
+		if i == 0 {
+			msg.cmd = data
+			continue
+		}
+
+		msg.args[i-1] = data
+	}
+
+	return msg, nil
+}
+
+func readBulkString(r *bufio.Reader, length int) (string, error) {
+	buf := make([]byte, length)
+
+	if _, err := r.Read(buf); err != nil {
+		return "", err
+	}
+
+	if _, err := r.Read(make([]byte, 2)); err != nil {
+		return "", err
+	}
+
+	return string(buf), nil
 }
 
 func runMessage(conn net.Conn, m message) error {
