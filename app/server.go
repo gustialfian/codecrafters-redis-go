@@ -29,12 +29,15 @@ type serverOpt struct {
 }
 
 var cfg = make(map[string]string)
+var rdb RDB
 
 func startServer(opt serverOpt) {
 	log.Println("StartServer...")
 
 	cfg["dir"] = opt.dir
 	cfg["dbfilename"] = opt.dbfilename
+	path := fmt.Sprintf("%v/%v", opt.dir, opt.dbfilename)
+	rdb = ParseV2(path)
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
@@ -172,35 +175,26 @@ func readBulkString(r *bufio.Reader, length int) (string, error) {
 }
 
 func runMessage(conn net.Conn, m message) error {
+	var resp string
 	switch m.cmd {
 	case "ping":
-		conn.Write([]byte("+PONG\r\n"))
-		return nil
-
+		resp = "+PONG\r\n"
 	case "echo":
-		res := fmt.Sprintf("+%v\r\n", m.args[0])
-		conn.Write([]byte(res))
-		return nil
-
+		resp = fmt.Sprintf("+%v\r\n", m.args[0])
 	case "set":
-		res := onSet(m.args)
-		conn.Write([]byte(res))
-		return nil
-
+		resp = onSet(m.args)
 	case "get":
-		res := onGet(m.args)
-		conn.Write([]byte(res))
-		return nil
-
+		resp = onGet(m.args)
 	case "config":
-		res := onConfig(m.args)
-		conn.Write([]byte(res))
-		return nil
-
+		resp = onConfig(m.args)
+	case "keys":
+		resp = onKeys(m.args)
 	default:
 		return fmt.Errorf("unknown command")
-
 	}
+
+	_, err := conn.Write([]byte(resp))
+	return err
 }
 
 var data = make(map[string]string)
@@ -247,5 +241,17 @@ func onConfig(args []string) string {
 	sb.WriteString(fmt.Sprintf("*2\r\n$%d\r\n%s\r\n", len(key), key))
 	sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(val), val))
 	return sb.String()
+}
 
+func onKeys(args []string) string {
+	switch args[0] {
+	case "*":
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("*%d\r\n", len(rdb.Databases[0].Fields)))
+		for _, f := range rdb.Databases[0].Fields {
+			sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(f.Key), f.Key))
+		}
+		return sb.String()
+	}
+	return "*0"
 }
