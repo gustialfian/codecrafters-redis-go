@@ -178,7 +178,7 @@ func runMessage(conn net.Conn, m message) error {
 		return nil
 
 	case "echo":
-		res := fmt.Sprintf("+%v\r\n", m.args[1])
+		res := fmt.Sprintf("+%v\r\n", m.args[0])
 		conn.Write([]byte(res))
 		return nil
 

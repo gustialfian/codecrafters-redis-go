@@ -92,6 +92,32 @@ func TestStartServer(t *testing.T) {
 	}
 }
 
+func Test_startServer(t *testing.T) {
+	go startServer(serverOpt{dir: "/tmp/redis-files", dbfilename: "dump.rdb"})
+	time.Sleep(time.Millisecond)
+
+	conn, err := net.Dial("tcp", "0.0.0.0:6379")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = conn.Write([]byte("*2\r\n$4\r\necho\r\n$9\r\nraspberry\r\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res := make([]byte, 1024)
+	n, err := conn.Read(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "+raspberry\r\n"
+	if string(res[:n]) != expected {
+		t.Fatalf("expected %v got %v", expected, string(res[:n]))
+	}
+}
+
 func makeCmd(s []string) string {
 	var result strings.Builder
 	result.WriteString("*0\r\n")
