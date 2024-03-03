@@ -40,7 +40,8 @@ type Database struct {
 		HashTableSize   int
 		ExpireHashTable int
 	}
-	Fields []Field
+	Keys   []string
+	Fields map[string]Field
 }
 
 type FieldType byte
@@ -50,9 +51,9 @@ const (
 )
 
 type Field struct {
+	Key         string
 	ExpiredTime uint64 // unix ms timestamp
 	Type        FieldType
-	Key         string
 	Value       any
 }
 
@@ -114,6 +115,7 @@ func ParseV2(path string) RDB {
 			}
 
 			db.ID = dbID
+			db.Fields = map[string]Field{}
 			curDBID = dbID
 
 			rdb.Databases = append(rdb.Databases, db)
@@ -174,7 +176,8 @@ func ParseV2(path string) RDB {
 				f.Value = val
 			}
 
-			rdb.Databases[curDBID].Fields = append(rdb.Databases[curDBID].Fields, f)
+			rdb.Databases[curDBID].Fields[key] = f
+			rdb.Databases[curDBID].Keys = append(rdb.Databases[curDBID].Keys, key)
 		}
 	}
 

@@ -29,6 +29,7 @@ type serverOpt struct {
 	dbfilename string
 }
 
+var data = make(map[string]string)
 var cfg = make(map[string]string)
 var rdb RDB
 
@@ -42,9 +43,18 @@ func startServer(opt serverOpt) {
 		_, err := os.Stat(path)
 		if err == nil {
 			rdb = ParseV2(path)
+			for _, f := range rdb.Databases[0].Fields {
+				data[f.Key] = f.Value.(string)
+			}
 		}
 
 		log.Println(err)
+
+		var db Database
+		db.ID = 0
+		db.Fields = map[string]Field{}
+
+		rdb.Databases = append(rdb.Databases, db)
 	}
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
@@ -206,8 +216,6 @@ func runMessage(conn net.Conn, m message) error {
 	return err
 }
 
-var data = make(map[string]string)
-
 func onSet(args []string) string {
 	if len(args) == 2 {
 		data[args[0]] = args[1]
@@ -256,9 +264,9 @@ func onKeys(args []string) string {
 	switch args[0] {
 	case "*":
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("*%d\r\n", len(rdb.Databases[0].Fields)))
-		for _, f := range rdb.Databases[0].Fields {
-			sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(f.Key), f.Key))
+		sb.WriteString(fmt.Sprintf("*%d\r\n", len(rdb.Databases[0].Keys)))
+		for _, k := range rdb.Databases[0].Keys {
+			sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(k), k))
 		}
 		return sb.String()
 	}
