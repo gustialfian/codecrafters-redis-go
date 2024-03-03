@@ -9,6 +9,10 @@ import (
 )
 
 func Parse(path string) {
+	// isOPCode := func(b byte) bool {
+	// 	return b <= OPCodeEOF && b >= OPCodeAUX
+	// }
+
 	file, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -28,6 +32,8 @@ func Parse(path string) {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		fmt.Printf("%v %x %q\n", b, b, b)
 
 		// handle header
 		if b == 250 {
@@ -87,7 +93,7 @@ func mapingKV(b []byte, data map[string]string) {
 	var curKey []byte
 	var curVal []byte
 	for i := 3; i < len(b); i++ {
-		fmt.Printf("%q -> %q: %q\n", b[i], curKey, curVal)
+		// fmt.Printf("%q -> %q: %q\n", b[i], curKey, curVal)
 
 		// finite state
 		if state == "start" && b[i] == 5 {
