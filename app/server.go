@@ -40,11 +40,11 @@ func startServer(opt serverOpt) {
 	if cfg["dir"] != "" || cfg["dbfilename"] != "" {
 		path := filepath.Join(opt.dir, opt.dbfilename)
 		_, err := os.Stat(path)
-		if err != nil {
-			log.Fatal(err)
+		if err == nil {
+			rdb = ParseV2(path)
 		}
 
-		rdb = ParseV2(path)
+		log.Println(err)
 	}
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
