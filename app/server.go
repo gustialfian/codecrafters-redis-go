@@ -39,6 +39,11 @@ func startServer(opt serverOpt) {
 	cfg["dbfilename"] = opt.dbfilename
 	if cfg["dir"] != "" || cfg["dbfilename"] != "" {
 		path := filepath.Join(opt.dir, opt.dbfilename)
+		_, err := os.Stat(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		rdb = ParseV2(path)
 	}
 
