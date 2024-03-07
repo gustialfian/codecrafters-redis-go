@@ -77,7 +77,7 @@ func TestStartServer(t *testing.T) {
 		{
 			name:   "info_replication",
 			input:  makeArrayString([]string{"info", "replication"}),
-			expect: makeArrayString([]string{"# Replication\nrole:master"}),
+			expect: makeBulkString("# Replication\nrole:master"),
 		},
 	}
 
@@ -109,4 +109,12 @@ func makeArrayString(s []string) string {
 		result.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(v), v))
 	}
 	return result.String()
+}
+
+func makeBulkString(s string) string {
+	var sb strings.Builder
+	sb.WriteString("# Replication\n")
+	sb.WriteString("role:master")
+
+	return fmt.Sprintf("$%d\r\n%s\r\n", len(sb.String()), sb.String())
 }
