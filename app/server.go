@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -13,16 +12,6 @@ import (
 	"strings"
 	"time"
 )
-
-func main() {
-	fmt.Println("Logs from your program will appear here!")
-
-	dir := flag.String("dir", "", "The directory where RDB files are stored")
-	dbfilename := flag.String("dbfilename", "", "The name of the RDB file")
-	flag.Parse()
-
-	startServer(serverOpt{dir: *dir, dbfilename: *dbfilename})
-}
 
 type serverOpt struct {
 	dir        string
@@ -38,38 +27,7 @@ func startServer(opt serverOpt) {
 
 	cfg["dir"] = opt.dir
 	cfg["dbfilename"] = opt.dbfilename
-	if cfg["dir"] != "" || cfg["dbfilename"] != "" {
-		path := filepath.Join(opt.dir, opt.dbfilename)
-		_, err := os.Stat(path)
-		if err == nil {
-			rdb = ParseV2(path)
-			for _, f := range rdb.Databases[0].Fields {
-				if f.ExpiredTime != 0 {
-					expTime := time.UnixMilli(int64(f.ExpiredTime))
-					if time.Now().After(expTime) {
-						continue
-					}
-
-					duration := expTime.Sub(time.Now())
-					go func() {
-						time.AfterFunc(duration, func() {
-							delete(data, f.Key)
-						})
-					}()
-				}
-
-				data[f.Key] = f.Value.(string)
-			}
-		}
-
-		log.Println(err)
-
-		var db Database
-		db.ID = 0
-		db.Fields = map[string]Field{}
-
-		rdb.Databases = append(rdb.Databases, db)
-	}
+	loadRDB(opt)
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
@@ -89,16 +47,55 @@ func startServer(opt serverOpt) {
 	}
 }
 
+func loadRDB(opt serverOpt) {
+	if cfg["dir"] == "" || cfg["dbfilename"] == "" {
+		return
+	}
+	path := filepath.Join(opt.dir, opt.dbfilename)
+	_, err := os.Stat(path)
+	if err != nil {
+		return
+	}
+	rdb = ParseRDB(path)
+	for _, f := range rdb.Databases[0].Fields {
+		if f.ExpiredTime != 0 {
+			expTime := time.UnixMilli(int64(f.ExpiredTime))
+			if time.Now().After(expTime) {
+				continue
+			}
+
+			duration := time.Until(expTime)
+			go func() {
+				time.AfterFunc(duration, func() {
+					delete(data, f.Key)
+				})
+			}()
+		}
+
+		data[f.Key] = f.Value.(string)
+	}
+
+	log.Println(err)
+
+	var db Database
+	db.ID = 0
+	db.Fields = map[string]Field{}
+
+	rdb.Databases = append(rdb.Databases, db)
+}
+
 func HandleCon(conn net.Conn) {
 	for {
-		m, err := parse(conn)
+		m, err := ParseRESP(conn)
 		if err != nil {
 			break
 		}
 
-		err = runMessage(conn, m)
+		log.Printf("incoming message: %+v\n", m)
+
+		err = RunMessage(conn, m)
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Fatalln(err)
 			break
 		}
 	}
@@ -109,7 +106,7 @@ type message struct {
 	args []string
 }
 
-func parse(conn net.Conn) (message, error) {
+func ParseRESP(conn net.Conn) (message, error) {
 	r := bufio.NewReader(conn)
 	b, err := r.ReadBytes('\n')
 	if err != nil {
@@ -194,7 +191,6 @@ func parse(conn net.Conn) (message, error) {
 
 func readBulkString(r *bufio.Reader, length int) (string, error) {
 	buf := make([]byte, length)
-
 	if _, err := r.Read(buf); err != nil {
 		return "", err
 	}
@@ -206,7 +202,7 @@ func readBulkString(r *bufio.Reader, length int) (string, error) {
 	return string(buf), nil
 }
 
-func runMessage(conn net.Conn, m message) error {
+func RunMessage(conn net.Conn, m message) error {
 	var resp string
 	switch m.cmd {
 	case "ping":

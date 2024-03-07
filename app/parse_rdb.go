@@ -59,7 +59,7 @@ type Field struct {
 
 type StringValue string
 
-func ParseV2(path string) RDB {
+func ParseRDB(path string) RDB {
 	file, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)

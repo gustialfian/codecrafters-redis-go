@@ -7,12 +7,8 @@ import (
 	"testing"
 )
 
-// func TestParse(t *testing.T) {
-// 	Parse("/home/highbits/code/sandbox/codecrafters-redis-go/dump/simple.rdb")
-// }
-
-func TestParseV2(t *testing.T) {
-	rdb := ParseV2("/home/highbits/code/sandbox/codecrafters-redis-go/dump/dump.rdb")
+func TestParse(t *testing.T) {
+	rdb := ParseRDB("/home/highbits/code/sandbox/codecrafters-redis-go/dump/dump.rdb")
 	// fmt.Println(string(rdb.MagicString[:]), string(rdb.RDBVerNum[:]), rdb.AuxField, rdb.Databases)
 	fmt.Printf("%+v\n", rdb)
 }
