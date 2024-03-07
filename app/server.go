@@ -16,6 +16,7 @@ import (
 type serverOpt struct {
 	dir        string
 	dbfilename string
+	port       string
 }
 
 var data = make(map[string]string)
@@ -23,18 +24,21 @@ var cfg = make(map[string]string)
 var rdb RDB
 
 func startServer(opt serverOpt) {
-	log.Println("StartServer...")
 
 	cfg["dir"] = opt.dir
 	cfg["dbfilename"] = opt.dbfilename
+	cfg["port"] = opt.port
 	loadRDB(opt)
 
-	l, err := net.Listen("tcp", "0.0.0.0:6379")
+	addr := fmt.Sprintf("0.0.0.0:%s", opt.port)
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("net.Listen:", err.Error())
 		os.Exit(1)
 	}
 	defer l.Close()
+
+	log.Println("StartServer", cfg)
 
 	for {
 		conn, err := l.Accept()
