@@ -9,7 +9,7 @@ import (
 )
 
 func TestStartServer(t *testing.T) {
-	go startServer(serverOpt{dir: "/home/highbits/code/sandbox/codecrafters-redis-go/dump", dbfilename: "dump.rdb"})
+	go startServer()
 	time.Sleep(time.Millisecond)
 
 	conn, err := net.Dial("tcp", "0.0.0.0:6379")
@@ -74,6 +74,11 @@ func TestStartServer(t *testing.T) {
 			input:  makeArrayString([]string{"keys", "*"}),
 			expect: makeArrayString([]string{"foo", "bar"}),
 		},
+		{
+			name:   "info_replication",
+			input:  makeArrayString([]string{"info", "replication"}),
+			expect: makeArrayString([]string{"# Replication\nrole:master"}),
+		},
 	}
 
 	for _, tt := range tests {
@@ -90,7 +95,7 @@ func TestStartServer(t *testing.T) {
 			}
 
 			if string(res[:n]) != tt.expect {
-				t.Fatalf("expected %v got %v", tt.expect, string(res[:n]))
+				t.Fatalf("expected %q got %q", tt.expect, string(res[:n]))
 			}
 		})
 		<-time.After(tt.wait)

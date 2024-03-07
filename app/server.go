@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -13,7 +14,7 @@ import (
 	"time"
 )
 
-type serverOpt struct {
+type ServerOpt struct {
 	dir        string
 	dbfilename string
 	port       string
@@ -23,14 +24,19 @@ var data = make(map[string]string)
 var cfg = make(map[string]string)
 var rdb RDB
 
-func startServer(opt serverOpt) {
+func startServer() {
+	dir := flag.String("dir", "", "The directory where RDB files are stored")
+	dbfilename := flag.String("dbfilename", "", "The name of the RDB file")
+	port := flag.String("port", "6379", "The PORT of the Server")
+	flag.Parse()
 
-	cfg["dir"] = opt.dir
-	cfg["dbfilename"] = opt.dbfilename
-	cfg["port"] = opt.port
-	loadRDB(opt)
+	cfg["dir"] = *dir
+	cfg["dbfilename"] = *dbfilename
+	cfg["port"] = *port
 
-	addr := fmt.Sprintf("0.0.0.0:%s", opt.port)
+	loadRDB()
+
+	addr := fmt.Sprintf("0.0.0.0:%s", *port)
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("net.Listen:", err.Error())
@@ -51,11 +57,11 @@ func startServer(opt serverOpt) {
 	}
 }
 
-func loadRDB(opt serverOpt) {
+func loadRDB() {
 	if cfg["dir"] == "" || cfg["dbfilename"] == "" {
 		return
 	}
-	path := filepath.Join(opt.dir, opt.dbfilename)
+	path := filepath.Join(cfg["dir"], cfg["dbfilename"])
 	_, err := os.Stat(path)
 	if err != nil {
 		return
@@ -221,6 +227,8 @@ func RunMessage(conn net.Conn, m message) error {
 		resp = onConfig(m.args)
 	case "keys":
 		resp = onKeys(m.args)
+	case "info":
+		resp = onInfo(m.args)
 	default:
 		return fmt.Errorf("unknown command")
 	}
@@ -282,6 +290,18 @@ func onKeys(args []string) string {
 			sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(k), k))
 		}
 		return sb.String()
+	}
+	return "*0"
+}
+
+func onInfo(args []string) string {
+	switch args[0] {
+	case "replication":
+		var sb strings.Builder
+		sb.WriteString("# Replication\n")
+		sb.WriteString("role:master")
+
+		return fmt.Sprintf("*1\r\n$%d\r\n%s\r\n", len(sb.String()), sb.String())
 	}
 	return "*0"
 }
