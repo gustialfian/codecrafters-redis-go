@@ -301,7 +301,7 @@ func onInfo(args []string) string {
 		sb.WriteString("# Replication\n")
 		sb.WriteString("role:master")
 
-		return fmt.Sprintf("*1\r\n$%d\r\n%s\r\n", len(sb.String()), sb.String())
+		return fmt.Sprintf("$%d\r\n%s\r\n", len(sb.String()), sb.String())
 	}
 	return "*0"
 }
