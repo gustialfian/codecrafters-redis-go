@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -14,29 +12,37 @@ import (
 	"time"
 )
 
-type ServerOpt struct {
-	dir        string
-	dbfilename string
-	port       string
+// var data = make(map[string]string)
+// var cfg = make(map[string]string)
+// var rdb RDB
+
+type Server struct {
+	data        map[string]string
+	config      map[string]string
+	rdb         RDB
+	replication replicationInfo
 }
 
-var data = make(map[string]string)
-var cfg = make(map[string]string)
-var rdb RDB
+type replicationInfo struct {
+	role string
+}
+
+const (
+	REPLICATION_ROLE_MASTER = "master"
+	REPLICATION_ROLE_SLAVE  = "slave"
+)
 
 func startServer() {
-	dir := flag.String("dir", "", "The directory where RDB files are stored")
-	dbfilename := flag.String("dbfilename", "", "The name of the RDB file")
-	port := flag.String("port", "6379", "The PORT of the Server")
-	flag.Parse()
+	srv := &Server{
+		data:   make(map[string]string),
+		config: make(map[string]string),
+	}
 
-	cfg["dir"] = *dir
-	cfg["dbfilename"] = *dbfilename
-	cfg["port"] = *port
+	srv.parseFlags()
+	srv.loadRDB()
+	srv.setReplicationInfo()
 
-	loadRDB()
-
-	addr := fmt.Sprintf("0.0.0.0:%s", *port)
+	addr := fmt.Sprintf("0.0.0.0:%s", srv.config["port"])
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("net.Listen:", err.Error())
@@ -44,7 +50,7 @@ func startServer() {
 	}
 	defer l.Close()
 
-	log.Println("StartServer", cfg)
+	log.Println("StartServer...")
 
 	for {
 		conn, err := l.Accept()
@@ -53,21 +59,45 @@ func startServer() {
 			os.Exit(1)
 		}
 
-		go HandleCon(conn)
+		go srv.HandleCon(conn)
 	}
 }
 
-func loadRDB() {
-	if cfg["dir"] == "" || cfg["dbfilename"] == "" {
+func (srv *Server) parseFlags() *string {
+	dir := flag.String("dir", "", "The directory where RDB files are stored")
+	dbfilename := flag.String("dbfilename", "", "The name of the RDB file")
+	port := flag.String("port", "6379", "The PORT of the Server")
+	replicaOf := flag.String("replicaof", "", "Specify replica port")
+	flag.Parse()
+
+	srv.config["dir"] = *dir
+	srv.config["dbfilename"] = *dbfilename
+	srv.config["port"] = *port
+	srv.config["replicaOf"] = *replicaOf
+
+	fmt.Printf("flags: %+v\n", srv.config)
+	return port
+}
+
+func (srv *Server) loadRDB() {
+	log.Printf("-> %+v\n", srv.rdb.Databases)
+
+	if srv.config["dir"] == "" || srv.config["dbfilename"] == "" {
+		var db Database
+		db.ID = 0
+		db.Fields = map[string]Field{}
+
+		srv.rdb.Databases = append(srv.rdb.Databases, db)
 		return
 	}
-	path := filepath.Join(cfg["dir"], cfg["dbfilename"])
+
+	path := filepath.Join(srv.config["dir"], srv.config["dbfilename"])
 	_, err := os.Stat(path)
 	if err != nil {
 		return
 	}
-	rdb = ParseRDB(path)
-	for _, f := range rdb.Databases[0].Fields {
+	srv.rdb = ParseRDB(path)
+	for _, f := range srv.rdb.Databases[0].Fields {
 		if f.ExpiredTime != 0 {
 			expTime := time.UnixMilli(int64(f.ExpiredTime))
 			if time.Now().After(expTime) {
@@ -77,24 +107,24 @@ func loadRDB() {
 			duration := time.Until(expTime)
 			go func() {
 				time.AfterFunc(duration, func() {
-					delete(data, f.Key)
+					delete(srv.data, f.Key)
 				})
 			}()
 		}
 
-		data[f.Key] = f.Value.(string)
+		srv.data[f.Key] = f.Value.(string)
 	}
-
-	log.Println(err)
-
-	var db Database
-	db.ID = 0
-	db.Fields = map[string]Field{}
-
-	rdb.Databases = append(rdb.Databases, db)
 }
 
-func HandleCon(conn net.Conn) {
+func (srv *Server) setReplicationInfo() {
+	if srv.config["replicaOf"] != "" {
+		srv.replication.role = REPLICATION_ROLE_SLAVE
+		return
+	}
+	srv.replication.role = REPLICATION_ROLE_MASTER
+}
+
+func (srv *Server) HandleCon(conn net.Conn) {
 	for {
 		m, err := ParseRESP(conn)
 		if err != nil {
@@ -103,7 +133,7 @@ func HandleCon(conn net.Conn) {
 
 		log.Printf("incoming message: %+v\n", m)
 
-		err = RunMessage(conn, m)
+		err = srv.RunMessage(conn, m)
 		if err != nil {
 			log.Fatalln(err)
 			break
@@ -111,108 +141,7 @@ func HandleCon(conn net.Conn) {
 	}
 }
 
-type message struct {
-	cmd  string
-	args []string
-}
-
-func ParseRESP(conn net.Conn) (message, error) {
-	r := bufio.NewReader(conn)
-	b, err := r.ReadBytes('\n')
-	if err != nil {
-		return message{}, err
-	}
-
-	if len(b) < 1 {
-		return message{}, errors.New("empty line")
-	}
-
-	if b[0] != '*' {
-		return message{}, errors.New("not impl first command not array")
-	}
-
-	readUntilCRLF := func(r *bufio.Reader) ([]byte, error) {
-		b, err := r.ReadBytes('\n')
-		if err != nil {
-			return b, err
-		}
-
-		if len(b) < 1 {
-			return b, errors.New("empty line")
-		}
-
-		if !strings.HasSuffix(string(b), "\r\n") {
-			return b, errors.New("not ended with CRLF")
-		}
-
-		length := len(b)
-		return b[:length-2], nil
-	}
-
-	lengthBytes := b[1:]
-	lengthStr := string(lengthBytes[:len(lengthBytes)-2]) // remove the CRLF
-	length, err := strconv.Atoi(lengthStr)
-	if err != nil {
-		return message{}, fmt.Errorf("invalid ararys length: %w", err)
-	}
-
-	if length < 1 {
-		return message{}, errors.New("empty command")
-	}
-
-	msg := message{
-		args: make([]string, length-1),
-	}
-
-	for i := 0; i < length; i++ {
-		var data string
-		b, err := r.ReadByte()
-		if err != nil {
-			return message{}, err
-		}
-
-		switch b {
-		case '$': // bulk string
-			lengthByte, err := readUntilCRLF(r)
-			if err != nil {
-				return message{}, fmt.Errorf("failed reading bulk string length: %w", err)
-			}
-			length, err := strconv.Atoi(string(lengthByte))
-			if err != nil {
-				return message{}, fmt.Errorf("invalid bulk string length: %w", err)
-			}
-
-			data, err = readBulkString(r, length)
-			if err != nil {
-				return message{}, fmt.Errorf("failed to read bulkstring: %w", err)
-			}
-		}
-
-		if i == 0 {
-			msg.cmd = data
-			continue
-		}
-
-		msg.args[i-1] = data
-	}
-
-	return msg, nil
-}
-
-func readBulkString(r *bufio.Reader, length int) (string, error) {
-	buf := make([]byte, length)
-	if _, err := r.Read(buf); err != nil {
-		return "", err
-	}
-
-	if _, err := r.Read(make([]byte, 2)); err != nil {
-		return "", err
-	}
-
-	return string(buf), nil
-}
-
-func RunMessage(conn net.Conn, m message) error {
+func (srv *Server) RunMessage(conn net.Conn, m Message) error {
 	var resp string
 	switch m.cmd {
 	case "ping":
@@ -220,15 +149,15 @@ func RunMessage(conn net.Conn, m message) error {
 	case "echo":
 		resp = fmt.Sprintf("+%v\r\n", m.args[0])
 	case "set":
-		resp = onSet(m.args)
+		resp = srv.onSet(m.args)
 	case "get":
-		resp = onGet(m.args)
+		resp = srv.onGet(m.args)
 	case "config":
-		resp = onConfig(m.args)
+		resp = srv.onConfig(m.args)
 	case "keys":
-		resp = onKeys(m.args)
+		resp = srv.onKeys(m.args)
 	case "info":
-		resp = onInfo(m.args)
+		resp = srv.onInfo(m.args)
 	default:
 		return fmt.Errorf("unknown command")
 	}
@@ -237,12 +166,12 @@ func RunMessage(conn net.Conn, m message) error {
 	return err
 }
 
-func onSet(args []string) string {
+func (srv *Server) onSet(args []string) string {
 	if len(args) == 2 {
-		data[args[0]] = args[1]
+		srv.data[args[0]] = args[1]
 	}
 	if len(args) == 4 {
-		data[args[0]] = args[1]
+		srv.data[args[0]] = args[1]
 
 		ttl, err := strconv.ParseInt(args[3], 10, 64)
 		if err != nil {
@@ -251,14 +180,14 @@ func onSet(args []string) string {
 
 		go func() {
 			<-time.After(time.Duration(ttl) * time.Millisecond)
-			delete(data, args[0])
+			delete(srv.data, args[0])
 		}()
 	}
 	return "+OK\r\n"
 }
 
-func onGet(args []string) string {
-	val := data[args[0]]
+func (srv *Server) onGet(args []string) string {
+	val := srv.data[args[0]]
 
 	if len(val) == 0 {
 		return "$-1\r\n"
@@ -267,39 +196,30 @@ func onGet(args []string) string {
 	return fmt.Sprintf("+%v\r\n", val)
 }
 
-func onConfig(args []string) string {
+func (srv *Server) onConfig(args []string) string {
 	key := args[1]
-	val := cfg[args[1]]
+	val := srv.config[args[1]]
 
 	if len(val) == 0 {
 		return "$-1\r\n"
 	}
-
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("*2\r\n$%d\r\n%s\r\n", len(key), key))
-	sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(val), val))
-	return sb.String()
+	return makeArrayBulkString([]string{key, val})
 }
 
-func onKeys(args []string) string {
+func (srv *Server) onKeys(args []string) string {
 	switch args[0] {
 	case "*":
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("*%d\r\n", len(rdb.Databases[0].Keys)))
-		for _, k := range rdb.Databases[0].Keys {
-			sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(k), k))
-		}
-		return sb.String()
+		return makeArrayBulkString(srv.rdb.Databases[0].Keys)
 	}
 	return "*0"
 }
 
-func onInfo(args []string) string {
+func (srv *Server) onInfo(args []string) string {
 	switch args[0] {
 	case "replication":
 		var sb strings.Builder
 		sb.WriteString("# Replication\n")
-		sb.WriteString("role:master")
+		sb.WriteString(fmt.Sprintf("role:%s", srv.replication.role))
 
 		return fmt.Sprintf("$%d\r\n%s\r\n", len(sb.String()), sb.String())
 	}

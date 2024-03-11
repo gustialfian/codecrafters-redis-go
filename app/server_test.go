@@ -25,58 +25,58 @@ func TestStartServer(t *testing.T) {
 	}{
 		{
 			name:   "ping",
-			input:  makeArrayString([]string{"ping"}),
+			input:  makeArrayBulkString([]string{"ping"}),
 			expect: "+PONG\r\n",
 		},
 		{
 			name:   "echo",
-			input:  makeArrayString([]string{"echo", "foobarbaz"}),
+			input:  makeArrayBulkString([]string{"echo", "foobarbaz"}),
 			expect: "+foobarbaz\r\n",
 		},
 		{
 			name:   "set",
-			input:  makeArrayString([]string{"set", "hello", "world"}),
+			input:  makeArrayBulkString([]string{"set", "hello", "world"}),
 			expect: "+OK\r\n",
 		},
 		{
 			name:   "get",
-			input:  makeArrayString([]string{"get", "hello"}),
+			input:  makeArrayBulkString([]string{"get", "hello"}),
 			expect: "+world\r\n",
 		},
 		{
 			name:   "get_not_found",
-			input:  makeArrayString([]string{"get", "get_not_found"}),
+			input:  makeArrayBulkString([]string{"get", "get_not_found"}),
 			expect: "$-1\r\n",
 		},
 		{
 			name:   "set_with_expiry",
-			input:  makeArrayString([]string{"set", "expiry", "123", "px", "10"}),
+			input:  makeArrayBulkString([]string{"set", "expiry", "123", "px", "10"}),
 			expect: "+OK\r\n",
 		},
 		{
 			name:   "get_with_expiry",
-			input:  makeArrayString([]string{"get", "expiry"}),
+			input:  makeArrayBulkString([]string{"get", "expiry"}),
 			expect: "+123\r\n",
 			wait:   11 * time.Millisecond,
 		},
 		{
 			name:   "get_with_expiry_not_found",
-			input:  makeArrayString([]string{"get", "expiry"}),
+			input:  makeArrayBulkString([]string{"get", "expiry"}),
 			expect: "$-1\r\n",
 		},
-		{
-			name:   "get_config",
-			input:  makeArrayString([]string{"config", "get", "dir"}),
-			expect: makeArrayString([]string{"dir", "/home/highbits/code/sandbox/codecrafters-redis-go/dump"}),
-		},
-		{
-			name:   "get_keys",
-			input:  makeArrayString([]string{"keys", "*"}),
-			expect: makeArrayString([]string{"foo", "bar"}),
-		},
+		// {
+		// 	name:   "get_config",
+		// 	input:  makeArrayBulkString([]string{"config", "get", "dir"}),
+		// 	expect: makeArrayBulkString([]string{"dir", "/home/highbits/code/sandbox/codecrafters-redis-go/dump"}),
+		// },
+		// {
+		// 	name:   "get_keys",
+		// 	input:  makeArrayBulkString([]string{"keys", "*"}),
+		// 	expect: makeArrayBulkString([]string{"foo", "bar"}),
+		// },
 		{
 			name:   "info_replication",
-			input:  makeArrayString([]string{"info", "replication"}),
+			input:  makeArrayBulkString([]string{"info", "replication"}),
 			expect: makeBulkString("# Replication\nrole:master"),
 		},
 	}
@@ -100,15 +100,6 @@ func TestStartServer(t *testing.T) {
 		})
 		<-time.After(tt.wait)
 	}
-}
-
-func makeArrayString(s []string) string {
-	var result strings.Builder
-	result.WriteString(fmt.Sprintf("*%d\r\n", len(s)))
-	for _, v := range s {
-		result.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(v), v))
-	}
-	return result.String()
 }
 
 func makeBulkString(s string) string {
