@@ -165,9 +165,10 @@ func (srv *Server) RunMessage(conn net.Conn, m Message) error {
 	case "info":
 		resp = srv.onInfo(m.args)
 	case "replconf", "REPLCONF":
+		resp = srv.onReplConf(m.args)
 		// fmt.Printf("LocalAddr: %v\n", conn.LocalAddr().String())
 		// fmt.Printf("RemoteAddr: %v\n", conn.RemoteAddr().String())
-		resp = srv.onReplConf(m.args, conn.LocalAddr().String())
+		// resp = srv.onReplConf(m.args, conn.LocalAddr().String())
 	case "PSYNC":
 		resp = srv.onPsync(m.args)
 	default:
@@ -240,15 +241,15 @@ func (srv *Server) onInfo(args []string) string {
 	return "*0"
 }
 
-func (srv *Server) onReplConf(args []string, host string) string {
+func (srv *Server) onReplConf(args []string) string {
 	resp := "+OK\r\n"
 
 	slave := SlaveServer{}
 
 	switch args[0] {
 	case "listening-port":
-		// slave.host = fmt.Sprintf("localhost:%s", args[1])
-		slave.host = host
+		slave.host = fmt.Sprintf("localhost:%s", args[1])
+		// slave.host = host
 	}
 
 	srv.slave = slave
@@ -257,8 +258,17 @@ func (srv *Server) onReplConf(args []string, host string) string {
 }
 
 func (srv *Server) onPsync(args []string) string {
-	go fullResync(srv.slave)
-	resp := fmt.Sprintf("+FULLRESYNC %s 0\r\n", srv.replication.masterReplid)
+	// go fullResync(srv.slave)
+
+	// NOTE: setup empty rdb
+	dataB64 := "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog=="
+	data, err := base64.StdEncoding.DecodeString(dataB64)
+	if err != nil {
+		log.Fatalln("base64.StdEncoding.DecodeString:", err)
+	}
+	empty := fmt.Sprintf("$%d\r\n%s", len(data), data)
+
+	resp := fmt.Sprintf("+FULLRESYNC %s 0\r\n", srv.replication.masterReplid) + empty
 	return resp
 }
 
@@ -306,24 +316,24 @@ func (srv *Server) setupSlave() {
 	fmt.Printf("res PSYNC:%+v\n", res)
 }
 
-func fullResync(ss SlaveServer) {
-	time.Sleep(time.Millisecond * 3)
+// func fullResync(ss SlaveServer) {
+// 	time.Sleep(time.Millisecond * 3)
 
-	// NOTE: setup empty rdb
-	dataB64 := "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog=="
-	data, err := base64.StdEncoding.DecodeString(dataB64)
-	if err != nil {
-		log.Fatalln("base64.StdEncoding.DecodeString:", err)
-	}
-	fmt.Printf("fullResync: %q\n", data)
+// 	// NOTE: setup empty rdb
+// 	dataB64 := "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog=="
+// 	data, err := base64.StdEncoding.DecodeString(dataB64)
+// 	if err != nil {
+// 		log.Fatalln("base64.StdEncoding.DecodeString:", err)
+// 	}
+// 	// fmt.Printf("fullResync: %q\n", data)
 
-	if err := ss.Connect(); err != nil {
-		log.Fatalln("fullResync:", err)
-	}
+// 	if err := ss.Connect(); err != nil {
+// 		log.Fatalln("fullResync:", err)
+// 	}
 
-	res, err := ss.Send(fmt.Sprintf("$%d\r\n%s", len(data), data))
-	if err != nil {
-		log.Fatalln("fullResync:", err)
-	}
-	fmt.Printf("res fullResync:%+v\n", res)
-}
+// 	res, err := ss.Send(fmt.Sprintf("$%d\r\n%s", len(data), data))
+// 	if err != nil {
+// 		log.Fatalln("fullResync:", err)
+// 	}
+// 	fmt.Printf("res fullResync:%+v\n", res)
+// }
