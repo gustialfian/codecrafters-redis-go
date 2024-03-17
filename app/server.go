@@ -258,6 +258,12 @@ func (srv *Server) setupSlave() {
 		log.Fatalln("setupSlave:", err)
 	}
 	fmt.Printf("res REPLCONF:%+v\n", res)
+
+	res, err = master.Send("*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n")
+	if err != nil {
+		log.Fatalln("setupSlave:", err)
+	}
+	fmt.Printf("res PSYNC:%+v\n", res)
 }
 
 type MasterServer struct {
