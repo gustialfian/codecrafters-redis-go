@@ -23,7 +23,9 @@ type flags struct {
 }
 
 func parseFlags() flags {
-	result := flags{}
+	result := flags{
+		port: "6379",
+	}
 	args := os.Args
 	for i := 1; i < len(args); i++ {
 		switch args[i] {

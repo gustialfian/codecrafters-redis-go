@@ -44,7 +44,7 @@ func startServer(opt ServerOpt) {
 		opt:    opt,
 	}
 
-	srv.parseFlags(opt)
+	srv.setupConfig()
 	srv.loadRDB()
 	srv.setReplicationInfo()
 	if srv.replication.role == REPLICATION_ROLE_SLAVE {
@@ -72,17 +72,17 @@ func startServer(opt ServerOpt) {
 	}
 }
 
-func (srv *Server) parseFlags(opt ServerOpt) {
-	srv.config["dir"] = opt.dir
-	srv.config["dbfilename"] = opt.dbfilename
-	srv.config["port"] = opt.port
-	srv.config["replicaOf"] = opt.replicaOf
+func (srv *Server) setupConfig() {
+	srv.config["dir"] = srv.opt.dir
+	srv.config["dbfilename"] = srv.opt.dbfilename
+	srv.config["port"] = srv.opt.port
+	srv.config["replicaOf"] = srv.opt.replicaOf
 
-	fmt.Printf("config: %+v\n", srv.config)
+	log.Printf("setupConfig: %+v\n", srv.config)
 }
 
 func (srv *Server) loadRDB() {
-	log.Printf("-> %+v\n", srv.rdb.Databases)
+	// log.Printf("loadRDB: %+v\n", srv.rdb.Databases)
 
 	if srv.config["dir"] == "" || srv.config["dbfilename"] == "" {
 		var db Database
