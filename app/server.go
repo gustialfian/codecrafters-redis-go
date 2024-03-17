@@ -233,17 +233,58 @@ func (srv *Server) onInfo(args []string) string {
 }
 
 func (srv *Server) setupSlave() {
+	log.Println("setupSlave...")
+
 	masterHost := strings.Join(strings.Split(srv.opt.replicaOf, " "), ":")
-	fmt.Println("masterHost:", masterHost, srv.opt.replicaOf)
-
-	conn, err := net.Dial("tcp", masterHost)
-	if err != nil {
-		log.Fatal("setupSlave:", err)
+	master := MasterServer{host: masterHost}
+	if err := master.Connect(); err != nil {
+		log.Fatalln("setupSlave:", err)
 	}
 
-	pingCmd := "*1\r\n$4\r\nping\r\n"
-	_, err = conn.Write([]byte(pingCmd))
+	res, err := master.Send("*1\r\n$4\r\nping\r\n")
 	if err != nil {
-		log.Fatal("setupSlave:", err)
+		log.Fatalln("setupSlave:", err)
 	}
+	fmt.Printf("res ping:%+v\n", res)
+
+	res, err = master.Send("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$4\r\n6380\r\n")
+	if err != nil {
+		log.Fatalln("setupSlave:", err)
+	}
+	fmt.Printf("res REPLCONF:%+v\n", res)
+
+	res, err = master.Send("*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n")
+	if err != nil {
+		log.Fatalln("setupSlave:", err)
+	}
+	fmt.Printf("res REPLCONF:%+v\n", res)
+}
+
+type MasterServer struct {
+	host string
+	conn net.Conn
+}
+
+func (ms *MasterServer) Connect() error {
+	conn, err := net.Dial("tcp", ms.host)
+	if err != nil {
+		return fmt.Errorf("Connect: %w", err)
+	}
+	ms.conn = conn
+	fmt.Println("Connect")
+	return nil
+}
+
+func (ms *MasterServer) Send(b string) (Message, error) {
+	_, err := ms.conn.Write([]byte(b))
+	if err != nil {
+		return Message{}, fmt.Errorf("Send: %w", err)
+	}
+
+	m, err := ParseRESP(ms.conn)
+	if err != nil {
+		return Message{}, fmt.Errorf("Send: %w", err)
+	}
+	fmt.Println("Send")
+	return m, nil
 }

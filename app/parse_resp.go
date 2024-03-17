@@ -10,8 +10,10 @@ import (
 )
 
 type Message struct {
-	cmd  string
-	args []string
+	cmd      string
+	args     []string
+	dataType string
+	raw      string
 }
 
 func ParseRESP(conn net.Conn) (Message, error) {
@@ -25,7 +27,16 @@ func ParseRESP(conn net.Conn) (Message, error) {
 		return Message{}, errors.New("empty line")
 	}
 
+	// TODO(ga): refactor this
+	if b[0] == '+' {
+		return Message{
+			dataType: "SIMPLE_STRING",
+			raw:      string(b),
+		}, nil
+	}
+
 	if b[0] != '*' {
+		fmt.Printf("%s", b)
 		return Message{}, errors.New("not impl first command not array")
 	}
 
