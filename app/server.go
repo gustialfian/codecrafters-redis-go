@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net"
@@ -17,6 +18,7 @@ type Server struct {
 	opt         ServerOpt
 	rdb         RDB
 	replication replicationInfo
+	slave       SlaveServer
 }
 
 type ServerOpt struct {
@@ -150,10 +152,6 @@ func (srv *Server) RunMessage(conn net.Conn, m Message) error {
 	switch m.cmd {
 	case "ping", "PING":
 		resp = "+PONG\r\n"
-	case "replconf", "REPLCONF":
-		resp = "+OK\r\n"
-	case "PSYNC":
-		resp = fmt.Sprintf("+FULLRESYNC %s 0\r\n", srv.replication.masterReplid)
 	case "echo":
 		resp = fmt.Sprintf("+%v\r\n", m.args[0])
 	case "set":
@@ -166,6 +164,10 @@ func (srv *Server) RunMessage(conn net.Conn, m Message) error {
 		resp = srv.onKeys(m.args)
 	case "info":
 		resp = srv.onInfo(m.args)
+	case "replconf", "REPLCONF":
+		resp = srv.onReplConf(m.args)
+	case "PSYNC":
+		resp = srv.onPsync(m.args)
 	default:
 		return fmt.Errorf("unknown command")
 	}
@@ -236,6 +238,27 @@ func (srv *Server) onInfo(args []string) string {
 	return "*0"
 }
 
+func (srv *Server) onReplConf(args []string) string {
+	resp := "+OK\r\n"
+
+	slave := SlaveServer{}
+
+	switch args[0] {
+	case "listening-port":
+		slave.host = fmt.Sprintf("localhost:%s", args[1])
+	}
+
+	srv.slave = slave
+
+	return resp
+}
+
+func (srv *Server) onPsync(args []string) string {
+	go fullResync(srv.slave)
+	resp := fmt.Sprintf("+FULLRESYNC %s 0\r\n", srv.replication.masterReplid)
+	return resp
+}
+
 func (srv *Server) setupSlave() {
 	log.Println("setupSlave...")
 
@@ -280,31 +303,24 @@ func (srv *Server) setupSlave() {
 	fmt.Printf("res PSYNC:%+v\n", res)
 }
 
-type MasterServer struct {
-	host string
-	conn net.Conn
-}
+func fullResync(ss SlaveServer) {
+	time.Sleep(time.Millisecond * 3)
 
-func (ms *MasterServer) Connect() error {
-	conn, err := net.Dial("tcp", ms.host)
+	// NOTE: setup empty rdb
+	dataB64 := "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog=="
+	data, err := base64.StdEncoding.DecodeString(dataB64)
 	if err != nil {
-		return fmt.Errorf("Connect: %w", err)
+		log.Fatalln("base64.StdEncoding.DecodeString:", err)
 	}
-	ms.conn = conn
-	fmt.Println("Connect")
-	return nil
-}
+	fmt.Printf("fullResync: %q\n", data)
 
-func (ms *MasterServer) Send(b string) (Message, error) {
-	_, err := ms.conn.Write([]byte(b))
-	if err != nil {
-		return Message{}, fmt.Errorf("Send: %w", err)
+	if err := ss.Connect(); err != nil {
+		log.Fatalln("fullResync:", err)
 	}
 
-	m, err := ParseRESP(ms.conn)
+	res, err := ss.Send(fmt.Sprintf("$%d\r\n%v", len(data), data))
 	if err != nil {
-		return Message{}, fmt.Errorf("Send: %w", err)
+		log.Fatalln("fullResync:", err)
 	}
-	fmt.Println("Send")
-	return m, nil
+	fmt.Printf("res fullResync:%+v\n", res)
 }
