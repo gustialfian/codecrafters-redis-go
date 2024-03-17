@@ -246,7 +246,8 @@ func (srv *Server) setupSlave() {
 		log.Fatalln("setupSlave:", err)
 	}
 	if res.raw != "+PONG" {
-		log.Fatalln("setupSlave: unexpected ping res: ", res.raw)
+		fmt.Printf("%q\n", res.raw)
+		log.Fatalln("setupSlave: unexpected ping res:", res.raw)
 	}
 	fmt.Printf("res ping:%+v\n", res)
 
@@ -255,7 +256,7 @@ func (srv *Server) setupSlave() {
 		log.Fatalln("setupSlave:", err)
 	}
 	if res.raw != "+OK" {
-		log.Fatalln("setupSlave: unexpected ping res: ", res.raw)
+		log.Fatalln("setupSlave: unexpected ping res:", res.raw)
 	}
 	fmt.Printf("res REPLCONF:%+v\n", res)
 
@@ -264,7 +265,7 @@ func (srv *Server) setupSlave() {
 		log.Fatalln("setupSlave:", err)
 	}
 	if res.raw != "+OK" {
-		log.Fatalln("setupSlave: unexpected ping res: ", res.raw)
+		log.Fatalln("setupSlave: unexpected ping res:", res.raw)
 	}
 	fmt.Printf("res REPLCONF:%+v\n", res)
 
