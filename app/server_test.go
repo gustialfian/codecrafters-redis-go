@@ -8,7 +8,11 @@ import (
 )
 
 func TestStartServer(t *testing.T) {
-	go startServer()
+	go startServer(ServerOpt{
+		port:       "6379",
+		dir:        "/home/highbits/code/sandbox/codecrafters-redis-go/dump",
+		dbfilename: "dump.rdb",
+	})
 	time.Sleep(time.Millisecond)
 
 	conn, err := net.Dial("tcp", "0.0.0.0:6379")
@@ -63,16 +67,16 @@ func TestStartServer(t *testing.T) {
 			input:  makeArrayBulkString([]string{"get", "expiry"}),
 			expect: "$-1\r\n",
 		},
-		// {
-		// 	name:   "get_config",
-		// 	input:  makeArrayBulkString([]string{"config", "get", "dir"}),
-		// 	expect: makeArrayBulkString([]string{"dir", "/home/highbits/code/sandbox/codecrafters-redis-go/dump"}),
-		// },
-		// {
-		// 	name:   "get_keys",
-		// 	input:  makeArrayBulkString([]string{"keys", "*"}),
-		// 	expect: makeArrayBulkString([]string{"foo", "bar"}),
-		// },
+		{
+			name:   "get_config",
+			input:  makeArrayBulkString([]string{"config", "get", "dir"}),
+			expect: makeArrayBulkString([]string{"dir", "/home/highbits/code/sandbox/codecrafters-redis-go/dump"}),
+		},
+		{
+			name:   "get_keys",
+			input:  makeArrayBulkString([]string{"keys", "*"}),
+			expect: makeArrayBulkString([]string{"foo", "bar"}),
+		},
 		{
 			name:   "info_replication",
 			input:  makeArrayBulkString([]string{"info", "replication"}),

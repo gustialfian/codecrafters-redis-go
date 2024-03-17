@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -12,21 +11,25 @@ import (
 	"time"
 )
 
-// var data = make(map[string]string)
-// var cfg = make(map[string]string)
-// var rdb RDB
-
 type Server struct {
-	data        map[string]string
 	config      map[string]string
+	data        map[string]string
+	opt         ServerOpt
 	rdb         RDB
 	replication replicationInfo
 }
 
+type ServerOpt struct {
+	dbfilename string
+	dir        string
+	port       string
+	replicaOf  string
+}
+
 type replicationInfo struct {
-	role             string
 	masterReplid     string
 	masterReplOffset int
+	role             string
 }
 
 const (
@@ -34,15 +37,19 @@ const (
 	REPLICATION_ROLE_SLAVE  = "slave"
 )
 
-func startServer() {
+func startServer(opt ServerOpt) {
 	srv := &Server{
 		data:   make(map[string]string),
 		config: make(map[string]string),
+		opt:    opt,
 	}
 
-	srv.parseFlags()
+	srv.parseFlags(opt)
 	srv.loadRDB()
 	srv.setReplicationInfo()
+	if srv.replication.role == REPLICATION_ROLE_SLAVE {
+		go srv.setupSlave()
+	}
 
 	addr := fmt.Sprintf("0.0.0.0:%s", srv.config["port"])
 	l, err := net.Listen("tcp", addr)
@@ -65,20 +72,13 @@ func startServer() {
 	}
 }
 
-func (srv *Server) parseFlags() *string {
-	dir := flag.String("dir", "", "The directory where RDB files are stored")
-	dbfilename := flag.String("dbfilename", "", "The name of the RDB file")
-	port := flag.String("port", "6379", "The PORT of the Server")
-	replicaOf := flag.String("replicaof", "", "Specify replica port")
-	flag.Parse()
+func (srv *Server) parseFlags(opt ServerOpt) {
+	srv.config["dir"] = opt.dir
+	srv.config["dbfilename"] = opt.dbfilename
+	srv.config["port"] = opt.port
+	srv.config["replicaOf"] = opt.replicaOf
 
-	srv.config["dir"] = *dir
-	srv.config["dbfilename"] = *dbfilename
-	srv.config["port"] = *port
-	srv.config["replicaOf"] = *replicaOf
-
-	fmt.Printf("flags: %+v\n", srv.config)
-	return port
+	fmt.Printf("config: %+v\n", srv.config)
 }
 
 func (srv *Server) loadRDB() {
@@ -119,7 +119,7 @@ func (srv *Server) loadRDB() {
 }
 
 func (srv *Server) setReplicationInfo() {
-	if srv.config["replicaOf"] != "" {
+	if srv.opt.replicaOf != "" {
 		srv.replication.role = REPLICATION_ROLE_SLAVE
 		return
 	}
@@ -230,4 +230,20 @@ func (srv *Server) onInfo(args []string) string {
 		return fmt.Sprintf("$%d\r\n%s\r\n", len(sb.String()), sb.String())
 	}
 	return "*0"
+}
+
+func (srv *Server) setupSlave() {
+	masterHost := strings.Join(strings.Split(srv.opt.replicaOf, " "), ":")
+	fmt.Println("masterHost:", masterHost, srv.opt.replicaOf)
+
+	conn, err := net.Dial("tcp", masterHost)
+	if err != nil {
+		log.Fatal("setupSlave:", err)
+	}
+
+	pingCmd := "*1\r\n$4\r\nping\r\n"
+	_, err = conn.Write([]byte(pingCmd))
+	if err != nil {
+		log.Fatal("setupSlave:", err)
+	}
 }
