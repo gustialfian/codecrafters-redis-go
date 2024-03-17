@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net"
-	"strings"
 	"testing"
 	"time"
 )
@@ -77,7 +76,7 @@ func TestStartServer(t *testing.T) {
 		{
 			name:   "info_replication",
 			input:  makeArrayBulkString([]string{"info", "replication"}),
-			expect: makeBulkString("# Replication\nrole:master"),
+			expect: makeBulkString("# Replication\nrole:master\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\nmaster_repl_offset:0"),
 		},
 	}
 
@@ -103,9 +102,5 @@ func TestStartServer(t *testing.T) {
 }
 
 func makeBulkString(s string) string {
-	var sb strings.Builder
-	sb.WriteString("# Replication\n")
-	sb.WriteString("role:master")
-
-	return fmt.Sprintf("$%d\r\n%s\r\n", len(sb.String()), sb.String())
+	return fmt.Sprintf("$%d\r\n%s\r\n", len(s), s)
 }

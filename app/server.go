@@ -24,7 +24,9 @@ type Server struct {
 }
 
 type replicationInfo struct {
-	role string
+	role             string
+	masterReplid     string
+	masterReplOffset int
 }
 
 const (
@@ -122,6 +124,8 @@ func (srv *Server) setReplicationInfo() {
 		return
 	}
 	srv.replication.role = REPLICATION_ROLE_MASTER
+	srv.replication.masterReplOffset = 0
+	srv.replication.masterReplid = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
 }
 
 func (srv *Server) HandleCon(conn net.Conn) {
@@ -219,7 +223,9 @@ func (srv *Server) onInfo(args []string) string {
 	case "replication":
 		var sb strings.Builder
 		sb.WriteString("# Replication\n")
-		sb.WriteString(fmt.Sprintf("role:%s", srv.replication.role))
+		sb.WriteString(fmt.Sprintf("role:%s\n", srv.replication.role))
+		sb.WriteString(fmt.Sprintf("master_replid:%s\n", srv.replication.masterReplid))
+		sb.WriteString(fmt.Sprintf("master_repl_offset:%v", srv.replication.masterReplOffset))
 
 		return fmt.Sprintf("$%d\r\n%s\r\n", len(sb.String()), sb.String())
 	}
