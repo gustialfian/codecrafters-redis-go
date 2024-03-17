@@ -321,7 +321,7 @@ func fullResync(ss SlaveServer) {
 		log.Fatalln("fullResync:", err)
 	}
 
-	res, err := ss.Send(fmt.Sprintf("$%d\r\n%v", len(data), data))
+	res, err := ss.Send(fmt.Sprintf("$%d\r\n%s", len(data), data))
 	if err != nil {
 		log.Fatalln("fullResync:", err)
 	}
