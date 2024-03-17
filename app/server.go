@@ -148,8 +148,10 @@ func (srv *Server) HandleCon(conn net.Conn) {
 func (srv *Server) RunMessage(conn net.Conn, m Message) error {
 	var resp string
 	switch m.cmd {
-	case "ping":
+	case "ping", "PING":
 		resp = "+PONG\r\n"
+	case "replconf", "REPLCONF":
+		resp = "+OK\r\n"
 	case "echo":
 		resp = fmt.Sprintf("+%v\r\n", m.args[0])
 	case "set":
