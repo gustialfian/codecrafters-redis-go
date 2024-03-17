@@ -165,9 +165,9 @@ func (srv *Server) RunMessage(conn net.Conn, m Message) error {
 	case "info":
 		resp = srv.onInfo(m.args)
 	case "replconf", "REPLCONF":
-		fmt.Printf("LocalAddr: %v\n", conn.LocalAddr().String())
-		fmt.Printf("RemoteAddr: %v\n", conn.RemoteAddr().String())
-		resp = srv.onReplConf(m.args)
+		// fmt.Printf("LocalAddr: %v\n", conn.LocalAddr().String())
+		// fmt.Printf("RemoteAddr: %v\n", conn.RemoteAddr().String())
+		resp = srv.onReplConf(m.args, conn.LocalAddr().String())
 	case "PSYNC":
 		resp = srv.onPsync(m.args)
 	default:
@@ -240,14 +240,15 @@ func (srv *Server) onInfo(args []string) string {
 	return "*0"
 }
 
-func (srv *Server) onReplConf(args []string) string {
+func (srv *Server) onReplConf(args []string, host string) string {
 	resp := "+OK\r\n"
 
 	slave := SlaveServer{}
 
 	switch args[0] {
 	case "listening-port":
-		slave.host = fmt.Sprintf("localhost:%s", args[1])
+		// slave.host = fmt.Sprintf("localhost:%s", args[1])
+		slave.host = host
 	}
 
 	srv.slave = slave
