@@ -165,6 +165,8 @@ func (srv *Server) RunMessage(conn net.Conn, m Message) error {
 	case "info":
 		resp = srv.onInfo(m.args)
 	case "replconf", "REPLCONF":
+		fmt.Printf("LocalAddr: %v\n", conn.LocalAddr().String())
+		fmt.Printf("RemoteAddr: %v\n", conn.RemoteAddr().String())
 		resp = srv.onReplConf(m.args)
 	case "PSYNC":
 		resp = srv.onPsync(m.args)
