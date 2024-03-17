@@ -82,6 +82,21 @@ func TestStartServer(t *testing.T) {
 			input:  makeArrayBulkString([]string{"info", "replication"}),
 			expect: makeBulkString("# Replication\nrole:master\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\nmaster_repl_offset:0"),
 		},
+		{
+			name:   "replconf_listening_port",
+			input:  makeArrayBulkString([]string{"REPLCONF", "listening-port", "6380"}),
+			expect: "+OK\r\n",
+		},
+		{
+			name:   "replconf_capa",
+			input:  makeArrayBulkString([]string{"REPLCONF", "capa", "eof", "capa", "psync2"}),
+			expect: "+OK\r\n",
+		},
+		{
+			name:   "psync_init",
+			input:  makeArrayBulkString([]string{"PSYNC", "?", "-1"}),
+			expect: "+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\r\n",
+		},
 	}
 
 	for _, tt := range tests {

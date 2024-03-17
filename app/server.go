@@ -152,6 +152,8 @@ func (srv *Server) RunMessage(conn net.Conn, m Message) error {
 		resp = "+PONG\r\n"
 	case "replconf", "REPLCONF":
 		resp = "+OK\r\n"
+	case "PSYNC":
+		resp = fmt.Sprintf("+FULLRESYNC %s 0\r\n", srv.replication.masterReplid)
 	case "echo":
 		resp = fmt.Sprintf("+%v\r\n", m.args[0])
 	case "set":
