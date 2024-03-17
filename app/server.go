@@ -245,17 +245,26 @@ func (srv *Server) setupSlave() {
 	if err != nil {
 		log.Fatalln("setupSlave:", err)
 	}
+	if res.raw != "+PONG" {
+		log.Fatalln("setupSlave: unexpected ping res: ", res.raw)
+	}
 	fmt.Printf("res ping:%+v\n", res)
 
 	res, err = master.Send("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$4\r\n6380\r\n")
 	if err != nil {
 		log.Fatalln("setupSlave:", err)
 	}
+	if res.raw != "+OK" {
+		log.Fatalln("setupSlave: unexpected ping res: ", res.raw)
+	}
 	fmt.Printf("res REPLCONF:%+v\n", res)
 
 	res, err = master.Send("*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n")
 	if err != nil {
 		log.Fatalln("setupSlave:", err)
+	}
+	if res.raw != "+OK" {
+		log.Fatalln("setupSlave: unexpected ping res: ", res.raw)
 	}
 	fmt.Printf("res REPLCONF:%+v\n", res)
 
